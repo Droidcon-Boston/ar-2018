@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Vuforia;
@@ -17,13 +18,14 @@ public class PlaneManager : MonoBehaviour
     #region PRIVATE_MEMBERS
     PositionalDeviceTracker positionalDeviceTracker;
     ContentPositioningBehaviour contentPositioningBehaviour;
-    GameObject m_PlaneAnchor, m_MidAirAnchor;
-    AnchorBehaviour[] anchorBehaviours;
     StateManager stateManager;
     Camera mainCamera;
     int AutomaticHitTestFrameCount;
-    Sprite m_IconGroundMode;
-    Sprite m_IconMidAirMode;
+    HitTestResult currentResult;
+    float maxTime = 20;
+    float minTime = 5;
+    bool shouldSpawn;
+    AudioSource audio;
     #endregion // PRIVATE_MEMBERS
 
 
@@ -41,10 +43,12 @@ public class PlaneManager : MonoBehaviour
 
         m_ResetButton.interactable = false;
 
-        m_IconGroundMode = Resources.Load<Sprite>("icon_ground_mode");
-        m_IconMidAirMode = Resources.Load<Sprite>("icon_midair_mode");
+        shouldSpawn = true;
+
+        audio = GetComponent<AudioSource>();
 
         mainCamera = Camera.main;
+
     }
 
     void LateUpdate()
@@ -55,6 +59,7 @@ public class PlaneManager : MonoBehaviour
             m_GroundReticle.alpha = 0; // hide the onscreen reticle
             m_OnScreenMessage.enabled = false; // hide the onscreen message
             SetSurfaceIndicatorVisible(true); // display the surface indicator
+            CheckAndSpawn();
         }
         else
         {
@@ -155,13 +160,57 @@ public class PlaneManager : MonoBehaviour
         augmentation.transform.rotation = rotation;
     }
 
+    private void CheckAndSpawn() {
+        Debug.Log("CheckAndSpawn " + shouldSpawn);
+        float spawnTime = Random.Range(minTime, maxTime);
+        if ( shouldSpawn ) {
+            Debug.Log("CheckAndSpawn coroutines");
+            shouldSpawn = false;
+            StartCoroutine(WaitAndSpawn(spawnTime));
+        }
+    }
+
+    private IEnumerator WaitAndSpawn(float waitTime)
+    {
+        Debug.Log("WaitAndSpawn " + waitTime);
+        yield return new WaitForSeconds(waitTime);
+        SpawnDroid();
+    }
+
+    private void SpawnDroid() {
+        Debug.Log("SpawnDroid Setting Plane Augmentation to Active");
+
+        if (positionalDeviceTracker != null && positionalDeviceTracker.IsActive)
+        {
+            DestroyAnchors();
+
+            contentPositioningBehaviour = m_PlaneFinder.GetComponent<ContentPositioningBehaviour>();
+            contentPositioningBehaviour.PositionContentAtPlaneAnchor(currentResult);
+            m_ResetButton.interactable = true;
+
+        }
+
+        if (!m_PlaneAugmentation.activeInHierarchy)
+        {
+            Debug.Log("Setting Plane Augmentation to Active");
+            // On initial run, unhide the augmentation
+            m_PlaneAugmentation.SetActive(true);
+        }
+
+        Debug.Log("Positioning Plane Augmentation at: " + currentResult.Position);
+        m_PlaneAugmentation.PositionAt(currentResult.Position);
+        RotateTowardCamera(m_PlaneAugmentation);
+    }
+
+ 
+
     #endregion // PRIVATE_METHODS
 
     #region PUBLIC_METHODS
 
     public void HandleAutomaticHitTest(HitTestResult result)
     {
-        Debug.Log("Result: " + result.Position);
+        currentResult = result;
 
         AutomaticHitTestFrameCount = Time.frameCount;
 
@@ -205,6 +254,10 @@ public class PlaneManager : MonoBehaviour
     public void Reset()
     {
         Debug.Log("Reset() called.");
+
+        audio.Play();
+
+        shouldSpawn = true;
 
         // reset augmentations
         m_PlaneAugmentation.transform.position = Vector3.zero;

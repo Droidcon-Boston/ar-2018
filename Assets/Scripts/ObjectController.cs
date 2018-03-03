@@ -5,6 +5,7 @@ using UnityEngine;
 public class ObjectController : MonoBehaviour {
 
     AudioSource audio;
+    public GameObject parent;
 
 	// Use this for initialization
 	void Start () {
@@ -17,9 +18,8 @@ public class ObjectController : MonoBehaviour {
 		
 	}
 
-    public void onHold() {
-        Debug.Log("Holddddd!");
-        audio.Play();
-
+    public void onTap() {
+        Debug.Log("Tappppp!");
+        parent.GetComponent<PlaneManager>().Reset();
     }
 }
